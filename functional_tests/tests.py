@@ -5,6 +5,8 @@ from selenium.common.exceptions import WebDriverException
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.common.keys import Keys
 import time
+import os
+
 
 MAX_WAIT = 10
 
@@ -15,6 +17,10 @@ class NewVisitorTest(StaticLiveServerTestCase):
         options = Options()
         options.binary_location = r'C:\Program Files\Mozilla Firefox\firefox.exe'
         self.browser = webdriver.Firefox(options=options)
+        
+        staging_server = os.environ.get('STAGING_SERVER')
+        if staging_server:
+            self.live_server_url = 'http://' + staging_server
 
     def tearDown(self):
         self.browser.quit()
@@ -149,4 +155,3 @@ class NewVisitorTest(StaticLiveServerTestCase):
             delta=10
         )
         
-        time.sleep(3)
