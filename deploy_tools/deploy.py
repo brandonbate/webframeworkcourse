@@ -1,12 +1,13 @@
 import random
 from fabric import Connection
+from invoke import Responder
 from patchwork.files import exists, append
 
 HOST = 'lists.bearcornfield.com'
 USER = 'ec2-user'
-KEY_FILENAME = '../../../aws_key2.pem'
-REPO_URL = '' 
-PROJECT = ''
+KEY_FILENAME = '../../../aws_server9.pem'
+REPO_URL = 'git@github.com:bb8fran/my_book_example.git' 
+PROJECT = 'superlists'
 
 def main():
 
@@ -20,26 +21,34 @@ def main():
         c.run(f'mkdir -p {site_folder}')  
         with c.cd(site_folder):
             _get_latest_source(c, current_commit)
-            #_update_virtualenv(c)
-            #_create_or_update_dotenv(c)
-            #_update_static_files(c)
-            #_update_database(c)
-            #_install_and_run_nginx(c)
-            #_create_nginx_conf(c)
-            #_create_socket_directory(c)
+            _update_virtualenv(c)
+            _create_or_update_dotenv(c)
+            _update_static_files(c)
+            _update_database(c)
+            _install_and_run_nginx(c)
+            _create_nginx_conf(c)
+            _create_socket_directory(c)
             _create_gunicorn_service(c)
             _startup_services(c)
             
 def _get_latest_source(c, current_commit):
 
-
     if exists(c,'.git'):  
         c.run('git fetch')  
     else:
+        yes = Responder(pattern=r'Is this ok \[y/d/N\]:', response='y\n')
+
         # Make sure git is installed
-        c.run('sudo yum install git')
+        c.run('sudo yum install git', pty=True, watchers=[yes])
+        
+        c.run('git config --global user.name "bb8fran@gmail.com"')
+        
         # Need git keys on system for this to work.
-        c.run(f'git clone {REPO_URL} .')
+        yes2 = Responder(pattern=r'Are you sure you want to continue connecting \(yes\/no\)\?',
+                         response='yes')
+        
+        c.run(f'git clone {REPO_URL} .', pty=True, watchers=[yes2])
+
         
     # Forces remote git repo to this latest commit id on local machine.
     c.run(f'git reset --hard {current_commit}')  
@@ -78,6 +87,18 @@ def _create_nginx_conf(c):
           f'| sudo tee /etc/nginx/sites-available/' + HOST)
     c.run('sudo ln -s -f /etc/nginx/sites-available/' + HOST + 
           ' /etc/nginx/sites-enabled/' + HOST)
+    
+    # regex for include /etc/nginx/conf.d/*;
+    orig_include = f'include \/etc\/nginx\/conf\.d\/\*\.conf;'
+    # regex for include /etc/nginx/sites-enabled/*;
+    new_include = f'include \/etc\/nginx\/sites-enabled\/\*;'
+    # regex replacement pattern
+    pattern = 's/' + orig_include + '/' + orig_include + f'\\n' + new_include + '/g'
+    
+    c.run('cat /etc/nginx/nginx.conf' +
+          f'| sed "s/user\snginx;/user ec2-user;/g" ' +
+          f'| sed "' + pattern + '"' +
+          f'| sudo tee /etc/nginx/nginx.conf');
 
 def _create_socket_directory(c):
     c.run('sudo mkdir -p /var/sockets')
