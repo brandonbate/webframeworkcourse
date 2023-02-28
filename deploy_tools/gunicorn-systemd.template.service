@@ -1,0 +1,13 @@
+[Unit]
+Description=Guincorn server for DOMAIN
+After=network.target
+
+[Service]
+Restart=on-failure
+User=ec2-user
+WorkingDirectory=/home/ec2-user/sites/DOMAIN
+EnvironmentFile=/home/ec2-user/sites/DOMAIN/.env
+ExecStart=/home/ec2-user/sites/DOMAIN/virtualenv/bin/gunicorn --bind unix:/var/sockets/DOMAIN.socket PROJECT.wsgi:application
+
+[Install]
+WantedBy=multi-user.target
